@@ -5,14 +5,15 @@ from .tools.tools import add_constant, categorical
 from . import regression
 from .regression.linear_model import OLS, GLS, WLS, GLSAR
 from .regression.quantile_regression import QuantReg
-from .genmod.generalized_linear_model import GLM
-from .genmod.generalized_estimating_equations import GEE
-from .genmod import families
+from .regression.mixed_linear_model import MixedLM
+from .genmod import api as genmod
+from .genmod.api import GLM, GEE, OrdinalGEE, NominalGEE, families, cov_struct
 from . import robust
 from .robust.robust_linear_model import RLM
 from .discrete.discrete_model import (Poisson, Logit, Probit,
                                       MNLogit, NegativeBinomial)
 from .tsa import api as tsa
+from .duration.hazard_regression import PHReg
 from .nonparametric import api as nonparametric
 from . import distributions
 from .__init__ import test
@@ -27,7 +28,9 @@ from .formula import api as formula
 
 from .iolib.smpickle import load_pickle as load
 
+from .tools.pca import PCA
 from .tools.print_version import show_versions
+from .tools.web import webdoc
 
 import os
 

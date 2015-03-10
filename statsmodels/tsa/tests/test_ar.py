@@ -4,12 +4,12 @@ Test AR Model
 import statsmodels.api as sm
 from statsmodels.compat.python import range
 from statsmodels.tsa.ar_model import AR
-from numpy.testing import (assert_almost_equal, assert_equal, assert_allclose,
-                           assert_)
+from numpy.testing import (assert_almost_equal, assert_allclose, assert_)
+from statsmodels.tools.testing import assert_equal
 from .results import results_ar
 import numpy as np
 import numpy.testing as npt
-from pandas import Series, Index
+from pandas import Series, Index, TimeSeries, DatetimeIndex
 
 DECIMAL_6 = 6
 DECIMAL_5 = 5
@@ -282,7 +282,7 @@ def test_ar_start_params():
     # smoke test
     data = sm.datasets.sunspots.load()
     res = AR(data.endog).fit(maxlag=9, start_params=0.1*np.ones(10.),
-                             method="mle", disp=-1)
+                             method="mle", disp=-1, maxiter=100)
 
 def test_ar_series():
     # smoke test for 773
@@ -292,6 +292,16 @@ def test_ar_series():
     ar = AR(dta).fit(maxlags=15)
     ar.bse
 
+
+def test_ar_select_order():
+    # 2118
+    np.random.seed(12345)
+    y = sm.tsa.arma_generate_sample([1, -.75, .3], [1], 100)
+    ts = TimeSeries(y, index=DatetimeIndex(start='1/1/1990', periods=100,
+                                           freq='M'))
+    ar = AR(ts)
+    res = ar.select_order(maxlag=12, ic='aic')
+    assert_(res == 2)
 
 #TODO: likelihood for ARX model?
 #class TestAutolagARX(object):

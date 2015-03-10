@@ -974,7 +974,98 @@ def test_summary():
 \\end{center}"""
     assert_equal(table, expected)
 
+class TestRegularizedFit(object):
 
+    # Make sure there are no issues when there are no selected
+    # variables.
+    def test_empty_model(self):
+
+       np.random.seed(742)
+       n = 100
+       endog = np.random.normal(size=n)
+       exog = np.random.normal(size=(n, 3))
+
+       model = OLS(endog, exog)
+       result = model.fit_regularized(alpha=1000)
+
+       assert_equal(result.params, 0.)
+       assert_equal(result.bse, 0.)
+
+
+    def test_regularized(self):
+
+        import os
+        from . import glmnet_r_results
+
+        cur_dir = os.path.dirname(os.path.abspath(__file__))
+        data = np.loadtxt(os.path.join(cur_dir, "results", "lasso_data.csv"),
+                          delimiter=",")
+
+        tests = [x for x in dir(glmnet_r_results) if x.startswith("rslt_")]
+
+        for test in tests:
+
+            vec = getattr(glmnet_r_results, test)
+
+            n = vec[0]
+            p = vec[1]
+            L1_wt = float(vec[2])
+            lam = float(vec[3])
+            params = vec[4:].astype(np.float64)
+
+            endog = data[0:n, 0]
+            exog = data[0:n, 1:(p+1)]
+
+            endog = endog - endog.mean()
+            endog /= endog.std(ddof=1)
+            exog = exog - exog.mean(0)
+            exog /= exog.std(0, ddof=1)
+
+            mod = OLS(endog, exog)
+            rslt = mod.fit_regularized(L1_wt=L1_wt, alpha=lam)
+            assert_almost_equal(rslt.params, params, decimal=3)
+
+            # Smoke test for summary
+            smry = rslt.summary()
+
+
+def test_formula_missing_cat():
+    # gh-805
+
+    import statsmodels.api as sm
+    from statsmodels.formula.api import ols
+    from patsy import PatsyError
+
+    dta = sm.datasets.grunfeld.load_pandas().data
+    dta.ix[0, 'firm'] = np.nan
+
+    mod = ols(formula='value ~ invest + capital + firm + year',
+              data=dta.dropna())
+    res = mod.fit()
+
+    mod2 = ols(formula='value ~ invest + capital + firm + year',
+               data=dta)
+    res2 = mod2.fit()
+
+    assert_almost_equal(res.params.values, res2.params.values)
+
+    assert_raises(PatsyError, ols, 'value ~ invest + capital + firm + year',
+                  data=dta, missing='raise')
+
+
+def test_missing_formula_predict():
+    # see 2171
+    nsample = 30
+
+    data = pandas.DataFrame({'x': np.linspace(0, 10, nsample)})
+    null = pandas.DataFrame({'x': np.array([np.nan])})
+    data = pandas.concat([data, null])
+    beta = np.array([1, 0.1])
+    e = np.random.normal(size=nsample+1)
+    data['y'] = beta[0] + beta[1] * data['x'] + e
+    model = OLS.from_formula('y ~ x', data=data)
+    fit = model.fit()
+    pred = fit.predict(exog=data[:-1])
 
 if __name__=="__main__":
 

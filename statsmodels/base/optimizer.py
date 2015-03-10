@@ -183,12 +183,6 @@ class Optimizer(object):
                             retall=retall, full_output=full_output,
                             hess=hessian)
 
-        # this is stupid TODO: just change this to something sane
-        # no reason to copy scipy here
-        if not full_output: # xopt should be None and retvals is argmin
-            xopt = retvals
-            retvals = None
-
         optim_settings = {'optimizer': method, 'start_params': start_params,
                         'maxiter': maxiter, 'full_output': full_output,
                         'disp': disp, 'fargs': fargs, 'callback': callback,
@@ -225,7 +219,7 @@ class Optimizer(object):
 
 def _fit_newton(f, score, start_params, fargs, kwargs, disp=True,
                     maxiter=100, callback=None, retall=False,
-                    full_output=True, hess=None):
+                    full_output=True, hess=None, ridge_factor=1e-10):
     tol = kwargs.setdefault('tol', 1e-8)
     iterations = 0
     oldparams = np.inf
@@ -234,7 +228,11 @@ def _fit_newton(f, score, start_params, fargs, kwargs, disp=True,
         history = [oldparams, newparams]
     while (iterations < maxiter and np.any(np.abs(newparams -
             oldparams) > tol)):
-        H = hess(newparams)
+        H = np.asarray(hess(newparams))
+        # regularize Hessian, not clear what ridge factor should be
+        # keyword option with absolute default 1e-10, see #1847
+        if not np.all(ridge_factor == 0):
+            H[np.diag_indices(H.shape[0])] += ridge_factor
         oldparams = newparams
         newparams = oldparams - np.dot(np.linalg.inv(H),
                 score(oldparams))
@@ -270,8 +268,8 @@ def _fit_newton(f, score, start_params, fargs, kwargs, disp=True,
             retvals.update({'allvecs': history})
 
     else:
-        retvals = newparams
-        xopt = None
+        xopt = newparams
+        retvals = None
 
     return xopt, retvals
 
@@ -299,7 +297,8 @@ def _fit_bfgs(f, score, start_params, fargs, kwargs, disp=True,
         if retall:
             retvals.update({'allvecs': allvecs})
     else:
-        xopt = None
+        xopt = retvals
+        retvals = None
 
     return xopt, retvals
 
@@ -390,7 +389,8 @@ def _fit_lbfgs(f, score, start_params, fargs, kwargs, disp=True,
         retvals = {'fopt': fopt, 'gopt': gopt, 'fcalls': fcalls,
                    'warnflag': warnflag, 'converged': converged}
     else:
-        xopt = None
+        xopt = retvals[0]
+        retvals = None
 
     return xopt, retvals
 
@@ -417,7 +417,8 @@ def _fit_nm(f, score, start_params, fargs, kwargs, disp=True,
         if retall:
             retvals.update({'allvecs': allvecs})
     else:
-        xopt = None
+        xopt = retvals
+        retvals = None
 
     return xopt, retvals
 
@@ -444,7 +445,8 @@ def _fit_cg(f, score, start_params, fargs, kwargs, disp=True,
             retvals.update({'allvecs': allvecs})
 
     else:
-        xopt = None
+        xopt = retvals
+        retvals = None
 
     return xopt, retvals
 
@@ -473,7 +475,8 @@ def _fit_ncg(f, score, start_params, fargs, kwargs, disp=True,
         if retall:
             retvals.update({'allvecs': allvecs})
     else:
-        xopt = None
+        xopt = retvals
+        retvals = None
 
     return xopt, retvals
 
@@ -503,7 +506,8 @@ def _fit_powell(f, score, start_params, fargs, kwargs, disp=True,
         if retall:
             retvals.update({'allvecs': allvecs})
     else:
-        xopt = None
+        xopt = retvals
+        retvals = None
 
     return xopt, retvals
 
@@ -529,18 +533,20 @@ def _fit_basinhopping(f, score, start_params, fargs, kwargs, disp=True,
     if method and method != 'L-BFGS-B': # l_bfgs_b doesn't take a hessian
         minimizer_kwargs['hess'] = hess
 
-    res = optimize.basinhopping(f, start_params,
-                                minimizer_kwargs=minimizer_kwargs,
-                                niter=niter, niter_success=niter_success,
-                                T=T, stepsize=stepsize, disp=disp,
-                                callback=callback, interval=interval)
+    retvals = optimize.basinhopping(f, start_params,
+                                    minimizer_kwargs=minimizer_kwargs,
+                                    niter=niter, niter_success=niter_success,
+                                    T=T, stepsize=stepsize, disp=disp,
+                                    callback=callback, interval=interval)
     if full_output:
-        xopt, fopt, niter, fcalls = res.x, res.fun, res.nit, res.nfev
-        converged = 'completed successfully' in res.message[0]
+        xopt, fopt, niter, fcalls = map(lambda x : getattr(retvals, x),
+                                        ['x', 'fun', 'nit', 'nfev'])
+        converged = 'completed successfully' in retvals.message[0]
         retvals = {'fopt': fopt, 'iterations': niter,
                    'fcalls': fcalls, 'converged': converged}
 
     else:
-        xopt = None
+        xopt = retvals.x
+        retvals = None
 
     return xopt, retvals

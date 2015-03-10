@@ -109,8 +109,8 @@ class KDEUnivariate(object):
             - "silverman" - .9 * A * nobs ** (-1/5.), where A is
               `min(std(X),IQR/1.34)`
             - "normal_reference" - C * A * nobs ** (-1/5.), where C is
-               calculated from the kernel. Equivalent (up to 2 dp) to the
-               "scott" bandwidth for gaussian kernels. See bandwidths.py
+              calculated from the kernel. Equivalent (up to 2 dp) to the
+              "scott" bandwidth for gaussian kernels. See bandwidths.py
             - If a float is given, it is the bandwidth.
 
         fft : bool
@@ -263,13 +263,6 @@ class KDEUnivariate(object):
         """
         _checkisfit(self)
         return self.kernel.density(self.endog, point)
-
-
-class KDE(KDEUnivariate):
-    def __init__(self, endog):
-        self.endog = np.asarray(endog)
-        warnings.warn("KDE is deprecated and will be removed in 0.6, "
-                      "use KDEUnivariate instead", FutureWarning)
 
 
 #### Kernel Density Estimator Functions ####
@@ -460,7 +453,7 @@ def kdensityfft(X, kernel="gau", bw="normal_reference", weights=None, gridsize=N
     X = np.asarray(X)
     X = X[np.logical_and(X>clip[0], X<clip[1])] # won't work for two columns.
                                                 # will affect underlying data?
-    
+
     # Get kernel object corresponding to selection
     kern = kernel_switch[kernel]()
 
